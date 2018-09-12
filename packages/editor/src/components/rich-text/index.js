@@ -233,10 +233,10 @@ export class RichText extends Component {
 	 * @return {Object} The current record (value and selection).
 	 */
 	getRecord() {
-		return {
-			value: this.formatToValue( this.props.value ),
-			selection: this.state.selection,
-		};
+		const { formats, text } = this.formatToValue( this.props.value );
+		const { selection } = this.state;
+
+		return { formats, text, selection };
 	}
 
 	createRecord() {
@@ -440,7 +440,7 @@ export class RichText extends Component {
 			this.applyRecord( record );
 		}
 
-		this.savedContent = this.valueToFormat( record.value );
+		this.savedContent = this.valueToFormat( record );
 		this.props.onChange( this.savedContent );
 		this.setState( { selection: record.selection } );
 	}
@@ -723,13 +723,13 @@ export class RichText extends Component {
 	 */
 	splitContent( blocks = [], context = {} ) {
 		const { onSplit } = this.props;
-		const { value, selection } = this.createRecord();
+		const record = this.createRecord();
 
 		if ( ! onSplit ) {
 			return;
 		}
 
-		let [ before, after ] = split( value, selection.start, selection.end );
+		let [ before, after ] = split( record );
 
 		// In case split occurs at the trailing or leading edge of the field,
 		// assume that the before/after values respectively reflect the current
@@ -737,9 +737,9 @@ export class RichText extends Component {
 		// determine whether the before/after value has changed using a trivial
 		//  strict equality operation.
 		if ( isEmpty( after ) ) {
-			before = value;
+			before = record;
 		} else if ( isEmpty( before ) ) {
-			after = value;
+			after = record;
 		}
 
 		// If pasting and the split would result in no content other than the
@@ -793,10 +793,13 @@ export class RichText extends Component {
 			value !== prevProps.value &&
 			value !== this.savedContent
 		) {
-			this.applyRecord( {
-				value: this.formatToValue( value ),
-				selection: this.editor.hasFocus() ? selection : undefined,
-			} );
+			const record = this.formatToValue( value );
+
+			if ( this.editor.hasFocus() ) {
+				record.selection = selection;
+			}
+
+			this.applyRecord( record );
 		}
 	}
 
@@ -810,14 +813,14 @@ export class RichText extends Component {
 		return value;
 	}
 
-	valueToFormat( value ) {
+	valueToFormat( { formats, text } ) {
 		const { format, multiline } = this.props;
 
 		if ( format === 'string' ) {
-			return toHTMLString( { value }, multiline );
+			return toHTMLString( { formats, text }, multiline );
 		}
 
-		return value;
+		return { formats, text };
 	}
 
 	render() {
@@ -974,7 +977,7 @@ RichTextContainer.Content = ( { value, format, tagName: Tag, multiline, ...props
 	let html = value;
 
 	if ( format !== 'string' ) {
-		html = toHTMLString( { value }, multiline );
+		html = toHTMLString( value, multiline );
 	}
 
 	const content = <RawHTML>{ html }</RawHTML>;
